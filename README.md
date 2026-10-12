@@ -728,15 +728,11 @@ The following features are intentionally not implemented yet:
 - Persistent queue/dashboard monitoring
 - Dynamic per-source rate-limit configuration
 - Dedicated production worker processes managed by a process supervisor
-
 ### Scheduler locking hardening
 
-The current scheduler uses the Redis `in_progress` flag to avoid scheduling a source that is already running. The check and the enqueue operation are currently separate operations.
+The scheduler uses a Redis atomic lock before enqueueing a crawl job. This prevents duplicate scheduling when multiple scheduler ticks or scheduler instances attempt to claim the same source.
 
-For production-grade duplicate protection, the next improvement should be an **atomic Redis claim/lock** acquired before `apply_async()`, with safe lock release and recovery from worker crashes. This prevents two scheduler ticks or multiple scheduler instances from claiming the same source simultaneously.
-
-The current implementation should therefore be treated as a solid project/development implementation, with atomic scheduling locks as a recommended hardening step before running multiple scheduler instances or relying on strict duplicate-free scheduling.
-
+The lock is acquired using Redis `SET NX EX` and is released when the crawl job finishes or reaches its final failure state. This provides safer duplicate protection for the scheduler and supports reliable crawl-state coordination.
 ---
 
 ## 20. Summary of Implemented Requirements
